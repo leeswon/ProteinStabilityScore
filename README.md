@@ -4,7 +4,7 @@
 
 # Run
 Example scripts to train a model are written in shell script _train.sh.
-    ## Input Arguments
+## Input Arguments
     - use_gpu, gpu_device : GPU based training
     - model_type : determines the type of a neural net model. STL (separate models for libraries), SNN (single neural net for all libraries), HPS and TF (multi-task model)
     - test_type : determines scale of regularization loss
