@@ -1,0 +1,7 @@
+.idea
+__pycache__
+graphs
+Data/*untested_designs_v1.csv
+
+*.out
+*.pyc
