@@ -8,6 +8,7 @@ from tensorflow import reset_default_graph
 
 from read_data import read_data, read_data_15k
 from train import train
+from train_rand_forest import train_rand_forest
 
 ############################################
 #### functions to load training results ####
@@ -150,6 +151,47 @@ def reformat_result_for_mat(model_architecture, model_hyperpara, train_hyperpara
     return result_of_curr_run
 
 
+#### functions for Random Forest model
+def model_info_summary_rndforest(model_type, model_hyperpara):
+    tmp_dict = {}
+    tmp_dict['type'] = model_type
+    tmp_dict['num_estimators'] = model_hyperpara["num_estimators"]
+    tmp_dict['split_criterion'] = model_hyperpara["split_crit"]
+
+    return tmp_dict
+
+
+def reformat_result_for_mat_rndforest(model_type, model_hyperpara, result_from_train_run):
+    result_of_curr_run = {}
+    #### 'model_specific_info' element
+    result_of_curr_run['model_specific_info'] = model_info_summary_rndforest(model_type, model_hyperpara)
+
+    num_run_per_model, train_error_list, valid_error_list, test_error_list, train_time_list = len(result_from_train_run), [], [], [], []
+    result_of_curr_run['result_of_each_run'] = np.zeros((num_run_per_model,), dtype=np.object)
+
+    for cnt in range(num_run_per_model):
+        result_of_curr_run['result_of_each_run'][cnt] = result_from_train_run[cnt]
+        train_error_list.append(result_from_train_run[cnt]['train_error'][-1])
+        valid_error_list.append(result_from_train_run[cnt]['validation_error'][-1])
+        test_error_list.append(result_from_train_run[cnt]['test_error'][-1])
+        train_time_list.append(result_from_train_run[cnt]['training_time'])
+
+    result_of_curr_run['train_error'] = train_error_list
+    result_of_curr_run['train_error_mean'] = mean_of_list(train_error_list)
+    result_of_curr_run['train_error_stddev'] = stddev_of_list(train_error_list)
+    result_of_curr_run['valid_error'] = valid_error_list
+    result_of_curr_run['valid_error_mean'] = mean_of_list(valid_error_list)
+    result_of_curr_run['valid_error_stddev'] = stddev_of_list(valid_error_list)
+    result_of_curr_run['test_error'] = test_error_list
+    result_of_curr_run['test_error_mean'] = mean_of_list(test_error_list)
+    result_of_curr_run['test_error_stddev'] = stddev_of_list(test_error_list)
+    result_of_curr_run['training_time'] = train_time_list
+    result_of_curr_run['training_time_mean'] = mean_of_list(train_time_list)
+    result_of_curr_run['training_time_stddev'] = stddev_of_list(train_time_list)
+
+    return result_of_curr_run
+
+
 ############################################
 #### functions to run several training  ####
 ####       with same model setting      ####
@@ -210,11 +252,17 @@ def train_run_for_each_model(model_architecture, model_hyperpara, train_hyperpar
         # dataset, datainfo = read_data_15k(data_hyperpara['folder_name'], data_hyperpara['train_file_name'], data_hyperpara['test_file_name'], data_hyperpara['train_valid_test_ratio'], data_hyperpara['all_output'])
         dataset, datainfo = read_data(data_hyperpara['folder_name'], data_hyperpara['train_file_name'], data_hyperpara['test_file_name'], data_hyperpara['train_valid_ratio'], data_hyperpara['all_output'])
         print("Training/Validation data group : %d\n" %(run_cnt))
-        train_result_tmp, num_model_para = train(model_architecture, model_hyperpara, train_hyperpara, dataset, datainfo, useGPU, GPU_device, doLifelong)
+        if 'rndforest' in model_architecture:
+            train_result_tmp, num_model_para = train_rand_forest(model_architecture, model_hyperpara, dataset, datainfo)
+        else:
+            train_result_tmp, num_model_para = train(model_architecture, model_hyperpara, train_hyperpara, dataset, datainfo, useGPU, GPU_device, doLifelong)
         result_from_train_run.append(train_result_tmp)
 
         if run_cnt < max_run_cnt-1:
-            result_of_curr_run = reformat_result_for_mat(model_architecture, model_hyperpara, train_hyperpara, result_from_train_run, range(run_cnt+1), num_model_para, doLifelong)
+            if 'rndforest' in model_architecture:
+                result_of_curr_run = reformat_result_for_mat_rndforest(model_architecture, model_hyperpara, result_from_train_run)
+            else:
+                result_of_curr_run = reformat_result_for_mat(model_architecture, model_hyperpara, train_hyperpara, result_from_train_run, range(run_cnt+1), num_model_para, doLifelong)
             spio.savemat('./Result/temp_'+mat_file_name, {'training_summary_temp':result_of_curr_run})
         elif isfile('./Result/temp_'+mat_file_name):
             remove('./Result/temp_'+mat_file_name)
@@ -223,7 +271,10 @@ def train_run_for_each_model(model_architecture, model_hyperpara, train_hyperpar
         reset_default_graph()
 
     #### save training summary
-    result_of_curr_run = reformat_result_for_mat(model_architecture, model_hyperpara, train_hyperpara, result_from_train_run, range(max_run_cnt), num_model_para, doLifelong)
+    if 'rndforest' in model_architecture:
+        result_of_curr_run = reformat_result_for_mat_rndforest(model_architecture, model_hyperpara, result_from_train_run)
+    else:
+        result_of_curr_run = reformat_result_for_mat(model_architecture, model_hyperpara, train_hyperpara, result_from_train_run, range(max_run_cnt), num_model_para, doLifelong)
     saved_result[-1] = result_of_curr_run
     spio.savemat('./Result/'+mat_file_name, {'training_summary':saved_result})
 

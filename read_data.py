@@ -92,7 +92,7 @@ def process_data(csv_raw_data, use_all_output):
 
                     for i, (cnt) in enumerate(train_data_descriptor.output_indices):
                         Y[:, i] = np.array(data_bin[cnt])
-                        mtl_data.append((X, Y))
+                    mtl_data.append((X, Y))
 
                 curr_task = row[train_data_descriptor.mtl_index]
                 task_list.append(curr_task)

@@ -7,7 +7,7 @@ _test_file_name = 'consistent_normalized_testing_data_v1.csv'
 def model_setup(model_type, num_task, test_type):
     model_hyperpara = {}
     model_hyperpara['batch_size'] = 32
-    model_hyperpara['hidden_layer'] = [64, 32, 16]
+    model_hyperpara['hidden_layer'] = [64, 32, 16, 16]
 
     if model_type.lower() == 'stl':
         model_architecture = 'mtl_several_ffnn_minibatch'
@@ -15,14 +15,22 @@ def model_setup(model_type, num_task, test_type):
         model_architecture = 'mtl_ffnn_minibatch'
     elif model_type.lower() == 'hps':
         model_architecture = 'mtl_ffnn_hard_para_sharing_minibatch'
-        model_hyperpara['hidden_layer'] = [64, 32]
-        model_hyperpara['task_specific_layer'] = [[16] for _ in range(num_task)]
+        tmp = model_hyperpara['hidden_layer'].pop()
+        model_hyperpara['task_specific_layer'] = [[tmp] for _ in range(num_task)]
     elif model_type.lower() == 'tf':
         model_architecture = 'mtl_ffnn_tensor_factor_minibatch'
-        model_hyperpara['hidden_layer'] = [64, 32]
-        model_hyperpara['task_specific_layer'] = [[16] for _ in range(num_task)]
+        tmp = model_hyperpara['hidden_layer'].pop()
+        model_hyperpara['task_specific_layer'] = [[tmp] for _ in range(num_task)]
         model_hyperpara['tensor_factor_type'] = 'Tucker'
         model_hyperpara['tensor_factor_error_threshold'] = 1e-3
+    elif model_type.lower() == 'srnd_forest':
+        model_architecture = 'mtl_rndforest'
+        model_hyperpara["num_estimators"] = 16
+        model_hyperpara["split_crit"] = "mse"
+    elif model_type.lower() == 'stl_rnd_forest':
+        model_architecture = 'mtl_several_rndforest'
+        model_hyperpara["num_estimators"] = 16
+        model_hyperpara["split_crit"] = "mse"
     else:
         model_architecture = 'wrong_model'
 
@@ -56,11 +64,11 @@ def main():
     train_hyperpara = {}
     train_hyperpara['improvement_threshold'] = 1.002  # for accuracy (maximizing it)
     train_hyperpara['patience_multiplier'] = 1.5
-    train_hyperpara['lr'] = 0.01
+    train_hyperpara['lr'] = 0.0001
     train_hyperpara['lr_decay'] = 1.0 / 100.0
     train_hyperpara['num_run_per_model'] = 5
-    train_hyperpara['learning_step_max'] = 10000
-    train_hyperpara['patience'] = 500
+    train_hyperpara['learning_step_max'] = 5000
+    train_hyperpara['patience'] = 100
 
     data_hyperpara = {}
     data_hyperpara['folder_name'] = 'Data'

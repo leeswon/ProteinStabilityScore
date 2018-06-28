@@ -1,5 +1,4 @@
 import os
-import pickle
 import timeit
 from random import shuffle
 
@@ -90,6 +89,7 @@ def train(model_architecture, model_hyperpara, train_hyperpara, dataset, data_in
     best_valid_error, test_error_at_best_epoch, best_epoch, epoch_bias = np.inf, np.inf, -1, 0
     train_error_hist, valid_error_hist, test_error_hist, best_test_error_hist = [], [], [], []
     train_total_error_hist, valid_total_error_hist, test_total_error_hist = [], [], []
+    test_prediction = np.array([[]], dtype=np.float32).T
     task_for_train, task_change_epoch = 0, [1]
     best_param = []
 
@@ -186,6 +186,16 @@ def train(model_architecture, model_hyperpara, train_hyperpara, dataset, data_in
                 if valid_error_to_compare < best_valid_error * improvement_threshold:
                     patience = max(patience, (learning_step-epoch_bias)*patience_multiplier)
                     str_temp = '\t<<'
+
+                    test_prediction = np.array([[]], dtype=np.float32).T
+                    #### compute estimation on test data
+                    for task_cnt in range(num_task):
+                        for batch_cnt in range(num_test[task_cnt]//batch_size):
+                            test_pred_tmp = sess.run(learning_model.test_eval[task_cnt], feed_dict={learning_model.model_input[task_cnt]: test_data[task_cnt][0][batch_cnt*batch_size:(batch_cnt+1)*batch_size, :], learning_model.true_output[task_cnt]: test_data[task_cnt][1][batch_cnt*batch_size:(batch_cnt+1)*batch_size]})
+                            test_prediction = np.concatenate((test_prediction, test_pred_tmp), axis=0)
+                        test_pred_tmp = sess.run(learning_model.test_eval[task_cnt], feed_dict={learning_model.model_input[task_cnt]: test_data[task_cnt][0][(batch_cnt+1)*batch_size:, :], learning_model.true_output[task_cnt]: test_data[task_cnt][1][(batch_cnt+1)*batch_size:]})
+                        test_prediction = np.concatenate((test_prediction, test_pred_tmp), axis=0)
+
                 best_valid_error, best_epoch = valid_error_to_compare, learning_step
                 test_error_at_best_epoch = test_error_to_compare
                 print('\t\t\t\t\t\t\tTest : %f%s' % (abs(test_error_at_best_epoch), str_temp))
@@ -215,6 +225,10 @@ def train(model_architecture, model_hyperpara, train_hyperpara, dataset, data_in
         print("Best validation error : %.4f (at epoch %d)" %(abs(best_valid_error), best_epoch))
         print("Test error at that epoch (%d) : %.4f" %(best_epoch, abs(test_error_at_best_epoch)))
 
+    true_test_output = test_data[0][1]
+    for task_cnt in range(1, num_task):
+        true_test_output = np.concatenate((true_test_output, test_data[task_cnt][1]), axis=0)
+
     result_summary = {}
     result_summary['training_time'] = end_time - start_time
     result_summary['num_epoch'] = learning_step
@@ -228,6 +242,8 @@ def train(model_architecture, model_hyperpara, train_hyperpara, dataset, data_in
     result_summary['history_test_total_error'] = test_total_error_hist
     result_summary['best_validation_error'] = abs(best_valid_error)
     result_summary['test_error_at_best_epoch'] = abs(test_error_at_best_epoch)
+    result_summary['test_prediction_at_best'] = list(np.squeeze(test_prediction))
+    result_summary['test_true_output'] = list(np.squeeze(true_test_output))
     if doLifelong:
         result_summary['task_changed_epoch'] = task_change_epoch
 
